@@ -1,6 +1,0 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "cd showcase && npm run build",
-  "outputDirectory": "showcase/.next",
-  "installCommand": "cd showcase && npm install"
-}
