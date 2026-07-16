@@ -22,7 +22,7 @@ interface Message {
   timestamp: Date;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://cse445-flood-forecast-bd.onrender.com";
 
 const QUICK_PROMPTS = [
   {
