@@ -61,6 +61,7 @@ const QUICK_PROMPTS = [
 export function ChatSimulation() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const [serverAwake, setServerAwake] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -85,7 +86,7 @@ export function ChatSimulation() {
 
   const handleSend = async (text?: string) => {
     const messageText = (text ?? input).trim();
-    if (!messageText || isTyping) return;
+    if (!messageText || isTyping || !serverAwake) return;
 
     const userMsg: Message = {
       id: `u-${Date.now()}`,
@@ -209,7 +210,7 @@ export function ChatSimulation() {
               <button
                 key={qp.label}
                 onClick={() => handleSend(qp.prompt)}
-                disabled={isTyping}
+                disabled={isTyping || !serverAwake}
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-sm text-text glass-card hover:border-[var(--glass-card-hover-border)] transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
               >
                 <qp.icon
@@ -224,7 +225,7 @@ export function ChatSimulation() {
 
           {/* Chat Window */}
           <div className="flex-1 glass-card overflow-hidden min-w-0 relative">
-            <RenderWakeUpOverlay />
+            <RenderWakeUpOverlay onAwake={() => setServerAwake(true)} />
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -236,7 +237,8 @@ export function ChatSimulation() {
                     Flood Forecast AI
                   </h4>
                   <p className="text-xs text-muted">
-                    gemma2:2b \u2014 QLoRA 4-bit
+                    gemma2:2b
+                    QLoRA 4-bit
                   </p>
                 </div>
               </div>
@@ -352,7 +354,7 @@ export function ChatSimulation() {
                 <button
                   key={qp.label}
                   onClick={() => handleSend(qp.prompt)}
-                  disabled={isTyping}
+                  disabled={isTyping || !serverAwake}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-text border border-white/10 bg-white/5 hover:bg-white/10 transition-colors flex-shrink-0 disabled:opacity-40"
                 >
                   <qp.icon className={`w-3 h-3 ${qp.color}`} />
@@ -370,15 +372,16 @@ export function ChatSimulation() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask about flood risks, districts, or the model..."
+                    placeholder={serverAwake ? "Ask about flood risks, districts, or the model..." : "Waiting for server..."}
                     rows={1}
-                    className="w-full resize-none rounded-xl px-4 py-3 text-sm text-text bg-white/5 border border-white/10 focus:border-accent/40 focus:outline-none placeholder:text-muted/50 transition-colors"
+                    disabled={!serverAwake}
+                    className="w-full resize-none rounded-xl px-4 py-3 text-sm text-text bg-white/5 border border-white/10 focus:border-accent/40 focus:outline-none placeholder:text-muted/50 transition-colors disabled:opacity-50"
                     style={{ minHeight: "44px", maxHeight: "120px" }}
                   />
                 </div>
                 <button
                   onClick={() => handleSend()}
-                  disabled={!input.trim() || isTyping}
+                  disabled={!input.trim() || isTyping || !serverAwake}
                   className="flex-shrink-0 w-11 h-11 rounded-xl bg-accent hover:bg-accent/90 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                   aria-label="Send message"
                 >

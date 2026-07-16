@@ -36,7 +36,7 @@ export function Footer() {
             <h4 className="text-sm font-bold text-text mb-4">Resources</h4>
             <div className="flex flex-col gap-2">
               <a
-                href="https://github.com/Mostakim52/cse445_flood_forecast_bd"
+                href="https://github.com/Mostakim52/cse445-flood-forecast-bd"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors"

@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 
 class ServerWakeUpOverlay extends StatefulWidget {
@@ -15,7 +15,6 @@ class ServerWakeUpOverlay extends StatefulWidget {
 
 class _ServerWakeUpOverlayState extends State<ServerWakeUpOverlay>
     with SingleTickerProviderStateMixin {
-  bool _isAwake = false;
   bool _showOverlay = false;
   int _retryCount = 0;
   Timer? _retryTimer;
@@ -45,26 +44,15 @@ class _ServerWakeUpOverlayState extends State<ServerWakeUpOverlay>
 
   Future<void> _checkHealth() async {
     try {
-      final res = await Uri.parse('https://cse445-flood-forecast-bd.onrender.com/health')
-          .resolve()
-          .toString();
-      // Use a simple HTTP get
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
-      final request = await client.getUrl(Uri.parse('https://cse445-flood-forecast-bd.onrender.com/health'));
-      final response = await request.close().timeout(const Duration(seconds: 5));
+      final response = await http
+          .get(Uri.parse('https://cse445-flood-forecast-bd.onrender.com/health'))
+          .timeout(const Duration(seconds: 10));
+
       if (response.statusCode == 200) {
-        setState(() {
-          _isAwake = true;
-          _showOverlay = false;
-        });
-        client.close();
+        if (mounted) setState(() => _showOverlay = false);
         return;
       }
-      client.close();
-    } catch (_) {
-      // Server not responding
-    }
+    } catch (_) {}
     _startRetry();
   }
 
@@ -85,7 +73,10 @@ class _ServerWakeUpOverlayState extends State<ServerWakeUpOverlay>
     return Stack(
       children: [
         widget.child,
-        if (_showOverlay) _buildOverlay(),
+        if (_showOverlay)
+          Positioned.fill(
+            child: AbsorbPointer(child: _buildOverlay()),
+          ),
       ],
     );
   }
@@ -93,111 +84,115 @@ class _ServerWakeUpOverlayState extends State<ServerWakeUpOverlay>
   Widget _buildOverlay() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Positioned.fill(
-      child: Container(
-        color: isDark
-            ? AppTheme.darkBackground.withAlpha(230)
-            : AppTheme.lightBackground.withAlpha(230),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+    return Container(
+      color: isDark
+          ? AppTheme.darkBackground
+          : AppTheme.lightBackground,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          color: (isDark ? AppTheme.darkBackground : AppTheme.lightBackground)
+              .withAlpha(200),
           child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Animated water drop
-                ScaleTransition(
-                  scale: _pulseAnim,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withAlpha(60),
-                          blurRadius: 24,
-                          offset: const Offset(0, 8),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ScaleTransition(
+                    scale: _pulseAnim,
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.water_drop_rounded,
-                      size: 40,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Server is waking up...',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Text(
-                    'Hosted on Render free tier.\nIt may take 30-60 seconds to come online.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textMuted(context),
-                      height: 1.5,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withAlpha(60),
+                            blurRadius: 32,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.water_drop_rounded,
+                        size: 48,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                if (_retryCount > 0) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 28),
                   Text(
-                    'Retrying... ($_retryCount)',
+                    'Server is waking up...',
                     style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textMuted(context),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary(context),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Hosted on Render free tier.\nIt may take 30-60 seconds to come online.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textMuted(context),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  if (_retryCount > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Retrying... ($_retryCount)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted(context),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 28),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _retryCount++);
+                      _checkHealth();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.card(context),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.borderAccentColor(context)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            size: 20,
+                            color: AppTheme.textPrimary(context),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Try now',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary(context),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
-                GestureDetector(
-                  onTap: () {
-                    setState(() => _retryCount++);
-                    _checkHealth();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.card(context),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderAccentColor(context)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.refresh_rounded,
-                          size: 18,
-                          color: AppTheme.textPrimary(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Try now',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textPrimary(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
