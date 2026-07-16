@@ -462,9 +462,10 @@ def chat():
         return jsonify({"error": str(e)}), 500
 
 
+load_model_artifacts()
+load_district_coords()
+load_historical_data()
+
 if __name__ == "__main__":
-    load_model_artifacts()
-    load_district_coords()
-    load_historical_data()
     logger.info("Starting Flood Forecasting API on port 5000")
     app.run(host="0.0.0.0", port=5000, debug=True)
