@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🌊 Flood Forecast BD
+<img src="showcase/public/images/icon_dark.png" alt="Flood Forecast BD" width="120" />
+
+# Flood Forecast BD
 ### *Real-Time Flood Intelligence System*
 
 🛡️ **CSE445 Machine Learning Project**
