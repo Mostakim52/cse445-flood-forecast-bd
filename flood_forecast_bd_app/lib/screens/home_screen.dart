@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
 import '../models/district.dart';
+import '../widgets/server_wake_up_overlay.dart';
 import 'forecast_screen.dart';
 import 'map_screen.dart';
 import 'chat_screen.dart';
@@ -75,7 +76,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background(context),
-      body: CustomScrollView(
+      body: ServerWakeUpOverlay(
+        child: CustomScrollView(
         controller: _scrollController,
         slivers: [
           // Animated Header
@@ -185,6 +187,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),
+    ),
     );
   }
 

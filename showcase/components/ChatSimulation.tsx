@@ -14,6 +14,7 @@ import {
   Brain,
 } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
+import { RenderWakeUpOverlay } from "./RenderWakeUpOverlay";
 
 interface Message {
   id: string;
@@ -222,7 +223,8 @@ export function ChatSimulation() {
           </div>
 
           {/* Chat Window */}
-          <div className="flex-1 glass-card overflow-hidden min-w-0">
+          <div className="flex-1 glass-card overflow-hidden min-w-0 relative">
+            <RenderWakeUpOverlay />
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center gap-3">

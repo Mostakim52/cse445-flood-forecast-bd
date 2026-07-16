@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ChatMessage {
@@ -15,11 +14,7 @@ class ChatMessage {
 }
 
 class ChatService {
-  static String get _baseUrl {
-    if (Platform.isAndroid) return 'http://10.0.2.2:5000';
-    if (Platform.isIOS || Platform.isMacOS) return 'http://localhost:5000';
-    return 'http://127.0.0.1:5000';
-  }
+  static const String _baseUrl = 'https://cse445-flood-forecast-bd.onrender.com';
 
   Future<bool> healthCheck() async {
     try {
