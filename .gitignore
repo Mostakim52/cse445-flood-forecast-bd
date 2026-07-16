@@ -58,6 +58,4 @@ floodforecast/__pycache__/
 floodforecast/ml_pipeline/__pycache__/
 floodforecast/utils/__pycache__/
 floodforecast/tests/__pycache__/
-*.pkl
-!floodforecast/models/*.pkl
 releases/*.apk
