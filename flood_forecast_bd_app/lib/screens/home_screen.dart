@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
@@ -19,12 +20,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final ApiService _api = ApiService();
-  final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<District> _districts = [];
-  List<District> _filtered = [];
   bool _loading = true;
   bool _apiConnected = false;
+  District? _selectedDistrict;
   late AnimationController _headerAnimController;
   late Animation<double> _headerFadeAnim;
 
@@ -47,7 +47,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void dispose() {
     _headerAnimController.dispose();
     _scrollController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -58,18 +57,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _apiConnected = connected;
         _districts = districts;
-        _filtered = districts;
         _loading = false;
       });
     }
-  }
-
-  void _filter(String query) {
-    setState(() {
-      _filtered = _districts
-          .where((d) => d.name.toLowerCase().contains(query.toLowerCase()))
-          .toList();
-    });
   }
 
   @override
@@ -91,98 +81,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Search + Actions
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
-              child: _buildSearchBar(),
-            ),
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: _buildQuickActions(),
             ),
           ),
 
-          // Section title
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Districts',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary(context),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${_filtered.length} available',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // District list
+          // District Dropdown
           if (_loading)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _buildShimmerCard(),
-                  childCount: 8,
-                ),
-              ),
-            )
-          else if (_filtered.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.search, size: 64, color: AppTheme.textMuted(context)),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No districts found',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary(context),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildShimmerDropdown(),
               ),
             )
           else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) => _buildDistrictCard(_filtered[i], i),
-                  childCount: _filtered.length,
-                ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: _buildDistrictDropdown(),
               ),
             ),
+
+          // Quick Forecast Button
+          if (_selectedDistrict != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: _buildForecastButton(),
+              ),
+            ),
+
+          // Developers Section
+          SliverToBoxAdapter(
+            child: _buildDevelopersSection(),
+          ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
@@ -324,63 +256,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSearchBar() {
-    return AnimatedBuilder(
-      animation: _headerFadeAnim,
-      builder: (_, __) => Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withAlpha(20),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: _searchController,
-          onChanged: _filter,
-          style: TextStyle(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white
-                : AppTheme.lightTextPrimary,
-            fontSize: 15,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Search 33 districts...',
-            prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primaryColor, size: 22),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 20,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppTheme.darkTextMuted
-                          : AppTheme.lightTextMuted,
-                    ),
-                    onPressed: () {
-                      _searchController.clear();
-                      _filter('');
-                    },
-                  )
-                : null,
-            filled: true,
-            fillColor: AppTheme.card(context),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuickActions() {
     return Row(
       children: [
@@ -473,162 +348,226 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildDistrictCard(District district, int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 50).clamp(0, 400)),
-      curve: Curves.easeOut,
-      builder: (_, val, __) => Opacity(
-        opacity: val,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - val)),
-          child: _districtTile(district),
+  Widget _buildDistrictDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderAccentColor(context)),
+      ),
+      child: DropdownButtonFormField<District>(
+        initialValue: _selectedDistrict,
+        isDense: true,
+        dropdownColor: AppTheme.card(context),
+        icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.textMuted(context), size: 22),
+        borderRadius: BorderRadius.circular(14),
+        menuMaxHeight: 300,
+        decoration: InputDecoration(
+          hintText: 'Select a district',
+          hintStyle: TextStyle(color: AppTheme.textMuted(context), fontSize: 14),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        items: _districts.map((district) {
+          return DropdownMenuItem<District>(
+            value: district,
+            child: Text(
+              district.name,
+              style: TextStyle(
+                color: AppTheme.textPrimary(context),
+                fontSize: 14,
+              ),
+            ),
+          );
+        }).toList(),
+        onChanged: (District? value) {
+          setState(() => _selectedDistrict = value);
+        },
+      ),
+    );
+  }
+
+  Widget _buildShimmerDropdown() {
+    return Shimmer.fromColors(
+      baseColor: AppTheme.shimmerBaseColor(context),
+      highlightColor: AppTheme.shimmerHighlightColor(context),
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: AppTheme.surface(context),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
     );
   }
 
-  Widget _buildShimmerCard() {
-    return Shimmer.fromColors(
-      baseColor: AppTheme.shimmerBaseColor(context),
-      highlightColor: AppTheme.shimmerHighlightColor(context),
+  Widget _buildForecastButton() {
+    return GestureDetector(
+      onTap: () {
+        if (_selectedDistrict != null) {
+          Navigator.push(
+            context,
+            PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 400),
+              pageBuilder: (_, __, ___) => ForecastScreen(district: _selectedDistrict!),
+              transitionsBuilder: (_, anim, __, child) => FadeTransition(
+                opacity: anim,
+                child: child,
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryColor.withAlpha(40),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.water_drop_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              'Check Flood Risk for ${_selectedDistrict!.name}',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDevelopersSection() {
+    final contributors = [
+      {'name': 'Mostakim Hossain', 'id': '2131545042', 'github': 'mostakim52'},
+      {'name': 'Abdullah Al Muhimine', 'id': '2131662642', 'github': 'tousifmuhimine'},
+      {'name': 'Sinhadul Islam', 'id': '2131211042', 'github': 'sinhajul'},
+      {'name': 'Shafkat Sharif', 'id': '2132314642', 'github': 'shafkatsharif'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Developers',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: Text(
+              'CSE 445 Machine Learning — North South University',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textMuted(context),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...contributors.map((c) => _buildDeveloperCard(c['name']!, c['id']!, c['github']!)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeveloperCard(String name, String id, String github) {
+    return GestureDetector(
+      onTap: () => launchUrl(
+        Uri.parse('https://github.com/$github'),
+        mode: LaunchMode.externalApplication,
+      ),
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 10),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppTheme.surface(context),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.borderAccentColor(context)),
           ),
           child: Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppTheme.iconOverlayColor(context),
-                  borderRadius: BorderRadius.circular(14),
-                ),
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: AppTheme.primaryColor.withAlpha(30),
+                backgroundImage: NetworkImage('https://github.com/$github.png'),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 120,
-                      height: 14,
-                      color: AppTheme.iconOverlayColor(context),
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: AppTheme.textPrimary(context),
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    Container(
-                      width: 80,
-                      height: 10,
-                      color: AppTheme.iconOverlayColor(context),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@$github',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted(context),
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                width: 32,
-                height: 32,
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppTheme.iconOverlayColor(context),
+                  color: AppTheme.primaryColor.withAlpha(15),
                   borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.open_in_new_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 14,
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _districtTile(District district) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(
-            context,
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 400),
-              pageBuilder: (_, __, ___) => ForecastScreen(district: district),
-              transitionsBuilder: (_, anim, __, child) => FadeTransition(
-                opacity: anim,
-                child: child,
-              ),
-            ),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface(context),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.borderAccentColor(context)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.primaryColor.withAlpha(40),
-                        AppTheme.secondaryColor.withAlpha(40),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.location_city_rounded,
-                    color: AppTheme.primaryColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        district.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: AppTheme.textPrimary(context),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${district.lat.toStringAsFixed(2)}°N, ${district.lon.toStringAsFixed(2)}°E',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textMuted(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
